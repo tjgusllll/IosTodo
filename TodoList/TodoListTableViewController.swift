@@ -161,56 +161,116 @@ class TodoListTableViewController: UITableViewController {
     
     
     //데이터를 삭제하기위한 함수 - 오른쪽에서 왼쪽으로 스와이프했을때 delete버튼 생성
-    //키를 사용하여 해당 셀 데이터 삭제
     override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         
-        var key : String?
+        var key : Int?
         
+        print("Section : \(indexPath.section)")
+        //선택한 섹션의 종류에 따라 구분하여 todo_no를 가져와 delete를 위한 key를 만들어줌
         if indexPath.section == 0 {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "TodoNotCompleted", for: indexPath)
             let list = todoNotCompleted[indexPath.row]
-            key = "delete/" + String(list.todo_no!)
-            //cell.textLabel?.text = list.todo
-            //cell.imageView?.image = UIImage(named: "NotCompleted")
-            //TodoNotCompleted 이라는 이름의 셀을 얻어와서 내용을 입력해주고 리턴
-            return
+            key =  list.todo_no
         }
         else {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "TodoCompleted", for: indexPath)
             let list = todoCompleted[indexPath.row]
-            key = "delete/" + String(list.todo_no!)
-            //cell.textLabel?.text = list.todo
-            //cell.imageView?.image = UIImage(named: "Completed")
-            //cell.textLabel?.textColor = UIColor.gray
-            return
+            key = list.todo_no
+        }
+        print("Key : \(key!)")
+        
+        deleteTodo(key!)
+        
+    }
+    
+    //키를 사용하여 해당 셀 데이터 삭제
+    func deleteTodo(_ key : Int) {
+        struct Success : Codable {
+            var result : Int?
         }
         
-        
-        
-        
-        //delete 버튼 눌렀을때 데이터 삭제 (인증이 되있다면 삭제, 그렇지 않으면 에러메세지출력)
-        print("delete key :", key)
-//        ref.child(key).removeValue{(error: Error?, ref) in
-//            guard error == nil else {
-//                let dialog = UIAlertController(title: "에러", message: error!.localizedDescription, preferredStyle: .alert)
-//                let okAction = UIAlertAction(title: "확인", style: .default, handler: nil)
-//                dialog.addAction(okAction)
-//                self.present(dialog,animated: true, completion: nil)
-//                return
-//            }
-//            print("delete success")
-//            self.resolveMovies()
-//        }
+        //alamofire를 사용하여 url/delete/todo_no를 전송하여 결과값 받음
+            Alamofire.request(url + "deleteTodo/\(key)", method: .get, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+                print("Response Result : \(response.result.value!)")
+                let decoder = JSONDecoder()
+                let data: Data? = response.data
+                if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                    
+                    //서버 과부하를 방지하기위해 todolist에서 삭제하고자 하는 todo_no와 일치하는 데이터를 찾아 remove한다.
+                    if issuccess.result == 1 {
+                        var i : Int = 0
+                        for todo in self.todolist {
+                            if todo.todo_no == key {
+                                self.todolist.remove(at: i)
+                                break
+                            } else {
+                                i += 1
+                            }
+                        }
+                        
+                        //todoCompleted와 todoNotCompleted를 removeAll후 reloadData를 하면 삭제 후의 나머지 데이터를 다시 가져와 반영한다.
+                        self.todoCompleted.removeAll()
+                        self.todoNotCompleted.removeAll()
+                        self.tableView.reloadData()
+                    }
+                    else {
+                        print("DeleteFail")
+                    }
+                }
+            }
     }
     
     
-    func deleteTodo() {
+    
+   
+    @IBOutlet weak var AddText: UITextField!
+    
+    //Todo 추가하기
+    @IBAction func AddTodo(_ sender: Any) {
+        struct Success : Codable {
+            var result : Int?
+        }
         
+        if let newTodo = AddText.text {
+            let params : Parameters = ["todo" : newTodo]
+            
+            Alamofire.request(url+"addTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+                
+                let decoder = JSONDecoder()
+                let data: Data? = response.data
+                if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                    
+                    //추가 성공시, 서버에서 생성해주는 todo_no와 id, isCompleted를 다시 받아와야한다.
+                    if issuccess.result == 1 {
+                        self.LoadTodoList()
+                        self.AddText.text = ""
+                    }
+                    else {
+                        print("AddFail")
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    @IBOutlet weak var AddBtn: UIButton!
+    
+    @IBAction func AddTouchDown(_ sender: Any) {
+        AddBtn.tintColor = UIColor(red: 255/255, green: 158/255, blue: 2/255, alpha: 1.0)
+    }
+    
+    @IBAction func AddTouchUpInside(_ sender: Any) {
+        AddBtn.tintColor = UIColor(red: 255/255, green: 213/255, blue: 80/255, alpha: 1.0)
     }
     
     
     
-
+    
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        self.view.endEditing(true)
+    }
+    
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.

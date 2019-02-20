@@ -16,12 +16,16 @@ struct Login {
 }
 
  var log = Login()
-class ViewController: UIViewController {
+class ViewController: UIViewController, UITextFieldDelegate {
    
     let url = UrlData().url
     
-    @IBOutlet weak var IdText: UITextField!
-    @IBOutlet weak var PwText: UITextField!
+    @IBOutlet weak var IdText: UITextField! {
+        didSet { IdText.delegate = self }
+    }
+    @IBOutlet weak var PwText: UITextField! {
+        didSet { PwText.delegate = self }
+    }
     @IBOutlet weak var LoginBtn: UIButton!
     
     
@@ -96,12 +100,17 @@ class ViewController: UIViewController {
     }
     
     
-//     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-//        if (segue.identifier == "todolistSegue") {
-//            _ = segue.destination as! TodoListTableViewController
-//        }
-//        print("**GoTo TodoListTableViewController**")
-//    }
+    
+    func textFieldShouldReturn(_ textField : UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        self.view.endEditing(true)
+    }
+    
+   
     
 }
 
