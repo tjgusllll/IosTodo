@@ -219,7 +219,7 @@
                     <navigationItem key="navigationItem" id="xGF-1v-HUY"/>
                     <connections>
                         <outlet property="AddBtn" destination="EYj-1W-JRh" id="aGB-lK-ejI"/>
-                        <outlet property="AddText" destination="7gO-Xt-okd" id="4J6-kb-vyv"/>
+                        <outlet property="AddText" destination="7gO-Xt-okd" id="GGL-e8-Jz4"/>
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="sh4-MW-IDe" userLabel="First Responder" sceneMemberID="firstResponder"/>

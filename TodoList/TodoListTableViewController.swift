@@ -23,7 +23,12 @@ struct TodoList : Codable {
 }
 
 
-class TodoListTableViewController: UITableViewController {
+class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
+    
+    @IBOutlet weak var AddText: UITextField! {
+        didSet { AddText.delegate = self }
+    }
+    
     //Data.swift 파일의 UrlData 클래스의 url변수 가져옴
     let url = UrlData().url
     
@@ -120,7 +125,6 @@ class TodoListTableViewController: UITableViewController {
     
     //테이블뷰에 이미지 넣어서 데이터 불러오기
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
         if indexPath.section == 0 {
             let cell = tableView.dequeueReusableCell(withIdentifier: "TodoNotCompleted", for: indexPath)
             let list = todoNotCompleted[indexPath.row]
@@ -160,11 +164,26 @@ class TodoListTableViewController: UITableViewController {
     }
     
     
-    //데이터를 삭제하기위한 함수 - 오른쪽에서 왼쪽으로 스와이프했을때 delete버튼 생성
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+    //edit leadingSwipeAction
+    override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
+        let editAction = self.contextualEditAction(forRowAtIndexPath: indexPath)
+        editAction.backgroundColor = .blue
+        let swipeConfig = UISwipeActionsConfiguration(actions: [editAction])
+        return swipeConfig
+    }
+    
+    //delete trailingSwipeAction -> contextualDeleteAction
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let deleteAction = self.contextualDeleteAction(forRowAtIndexPath: indexPath)
+        deleteAction.backgroundColor = .red
+        let swipeConfig = UISwipeActionsConfiguration(actions: [deleteAction])
+        return swipeConfig
+    }
+    
+    //swipe delete
+    func contextualDeleteAction(forRowAtIndexPath indexPath: IndexPath) -> UIContextualAction {
         var key : Int?
-        
         print("Section : \(indexPath.section)")
         //선택한 섹션의 종류에 따라 구분하여 todo_no를 가져와 delete를 위한 key를 만들어줌
         if indexPath.section == 0 {
@@ -175,11 +194,40 @@ class TodoListTableViewController: UITableViewController {
             let list = todoCompleted[indexPath.row]
             key = list.todo_no
         }
-        print("Key : \(key!)")
         
-        deleteTodo(key!)
+        let action = UIContextualAction(style: .normal,title: "Delete") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
+            
+            completionHandler(true)
+            self.deleteTodo(key!)
+        }
+        return action
         
     }
+    
+    //swipe edit
+    func contextualEditAction(forRowAtIndexPath indexPath: IndexPath) -> UIContextualAction {
+        var key : Int?
+        print("Section : \(indexPath.section)")
+        //선택한 섹션의 종류에 따라 구분하여 todo_no를 가져와 delete를 위한 key를 만들어줌
+        if indexPath.section == 0 {
+            let list = todoNotCompleted[indexPath.row]
+            key =  list.todo_no
+        }
+        else {
+            let list = todoCompleted[indexPath.row]
+            key = list.todo_no
+        }
+        
+        let action = UIContextualAction(style: .normal,title: "Edit") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
+            
+            completionHandler(true)
+            //self.deleteTodo(key!)
+        }
+        return action
+        
+    }
+    
+    
     
     //키를 사용하여 해당 셀 데이터 삭제
     func deleteTodo(_ key : Int) {
@@ -218,10 +266,8 @@ class TodoListTableViewController: UITableViewController {
             }
     }
     
-    
-    
    
-    @IBOutlet weak var AddText: UITextField!
+    
     
     //Todo 추가하기
     @IBAction func AddTodo(_ sender: Any) {
@@ -229,26 +275,30 @@ class TodoListTableViewController: UITableViewController {
             var result : Int?
         }
         
-        if let newTodo = AddText.text {
-            let params : Parameters = ["todo" : newTodo]
-            
-            Alamofire.request(url+"addTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+        if AddText.text != "" {
+            if let newTodo = AddText.text {
+                let params : Parameters = ["todo" : newTodo]
                 
-                let decoder = JSONDecoder()
-                let data: Data? = response.data
-                if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                Alamofire.request(url+"addTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
                     
-                    //추가 성공시, 서버에서 생성해주는 todo_no와 id, isCompleted를 다시 받아와야한다.
-                    if issuccess.result == 1 {
-                        self.LoadTodoList()
-                        self.AddText.text = ""
-                    }
-                    else {
-                        print("AddFail")
+                    let decoder = JSONDecoder()
+                    let data: Data? = response.data
+                    if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                        
+                        //추가 성공시, 서버에서 생성해주는 todo_no와 id, isCompleted를 다시 받아와야한다.
+                        if issuccess.result == 1 {
+                            self.AddText.text = ""
+                            self.LoadTodoList()
+                        }
+                        else {
+                            print("AddFail")
+                        }
                     }
                 }
             }
         }
+        print("AddTextField is nil")
+        _ = textFieldShouldReturn(AddText)
     }
     
     
@@ -263,8 +313,10 @@ class TodoListTableViewController: UITableViewController {
     }
     
     
-    
-    
+    func textFieldShouldReturn(_ textField : UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.view.endEditing(true)
