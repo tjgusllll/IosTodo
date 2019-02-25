@@ -25,6 +25,8 @@ struct TodoList : Codable {
 
 class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
     
+     var change : Int? = 0
+    
     @IBOutlet weak var AddText: UITextField! {
         didSet { AddText.delegate = self }
     }
@@ -146,40 +148,51 @@ class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
     
     //셀 클릭 시 해당 데이터 출력
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        //셀을 눌러서 선택하면 alert창에 나오는 textfield를 사용하여 수정
-        //textfield에는 선택 셀의 todo 내용이 표시
-        //수정 후 OK -> alamofire .post 수정내용 전송 후 success 확인 시 & LoadTodoList() 새로 호출
-        //Cancle -> 수정없음
-        var selectData : String?
-        if indexPath.section == 0 {
-            selectData = todoNotCompleted[indexPath.row].todo!
-        } else {
-            selectData = todoCompleted[indexPath.row].todo!
-        }
-        
-        let dialog = UIAlertController(title: "SelectCell", message: selectData, preferredStyle: .alert)
-        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-        dialog.addAction(okAction)
-        self.present(dialog,animated: true, completion: nil)
+        //셀을 눌러서 선택하면 alert
+//        var selectData : String?
+//        if indexPath.section == 0 {
+//            selectData = todoNotCompleted[indexPath.row].todo!
+//        } else {
+//            selectData = todoCompleted[indexPath.row].todo!
+//        }
+//
+//        let dialog = UIAlertController(title: "SelectCell", message: selectData, preferredStyle: .alert)
+//        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+//        dialog.addAction(okAction)
+//        self.present(dialog,animated: true, completion: nil)
     }
     
     
-    //edit leadingSwipeAction
+    
+    
+    
+    
+    
+    //completed leadingSwipeAction
     override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
-        let editAction = self.contextualEditAction(forRowAtIndexPath: indexPath)
-        editAction.backgroundColor = .blue
-        let swipeConfig = UISwipeActionsConfiguration(actions: [editAction])
+        let completedAction = self.contextualCompletedAction(forRowAtIndexPath: indexPath)
+        completedAction.backgroundColor = .orange
+        let swipeConfig = UISwipeActionsConfiguration(actions: [completedAction])
         return swipeConfig
     }
     
-    //delete trailingSwipeAction -> contextualDeleteAction
+    //edit, delete trailingSwipeAction -> contextualDeleteAction
     override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        //delete
         let deleteAction = self.contextualDeleteAction(forRowAtIndexPath: indexPath)
         deleteAction.backgroundColor = .red
-        let swipeConfig = UISwipeActionsConfiguration(actions: [deleteAction])
+        
+        //edit
+        let editAction = self.contextualEditAction(forRowAtIndexPath: indexPath)
+        editAction.backgroundColor = .blue
+        
+        
+        let swipeConfig = UISwipeActionsConfiguration(actions: [deleteAction, editAction])
         return swipeConfig
     }
+    
     
     //swipe delete
     func contextualDeleteAction(forRowAtIndexPath indexPath: IndexPath) -> UIContextualAction {
@@ -195,8 +208,7 @@ class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
             key = list.todo_no
         }
         
-        let action = UIContextualAction(style: .normal,title: "Delete") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
-            
+        let action = UIContextualAction(style: .normal,title: "✂️") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
             completionHandler(true)
             self.deleteTodo(key!)
         }
@@ -204,29 +216,61 @@ class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
         
     }
     
+    
+   
     //swipe edit
     func contextualEditAction(forRowAtIndexPath indexPath: IndexPath) -> UIContextualAction {
         var key : Int?
+        let todo : String?
         print("Section : \(indexPath.section)")
-        //선택한 섹션의 종류에 따라 구분하여 todo_no를 가져와 delete를 위한 key를 만들어줌
+        
         if indexPath.section == 0 {
             let list = todoNotCompleted[indexPath.row]
             key =  list.todo_no
+            todo = list.todo
         }
         else {
             let list = todoCompleted[indexPath.row]
             key = list.todo_no
+            todo = list.todo
         }
+       
+        change = key!
         
-        let action = UIContextualAction(style: .normal,title: "Edit") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
-            
+        let action = UIContextualAction(style: .normal, title: "✏️") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
             completionHandler(true)
-            //self.deleteTodo(key!)
+            self.AddText.text = todo
+            self.AddText.becomeFirstResponder()
         }
         return action
         
     }
     
+    
+    //swipe completed
+    func contextualCompletedAction(forRowAtIndexPath indexPath: IndexPath) -> UIContextualAction {
+        var key : Int?
+        let iscompleted : Bool?
+        print("Section : \(indexPath.section)")
+        
+        if indexPath.section == 0 {
+            let list = todoNotCompleted[indexPath.row]
+            key =  list.todo_no
+            iscompleted = list.iscompleted
+        }
+        else {
+            let list = todoCompleted[indexPath.row]
+            key = list.todo_no
+            iscompleted = list.iscompleted
+        }
+        
+        
+        let action = UIContextualAction(style: .normal,title: "✓") { (contextAction: UIContextualAction, sourceView: UIView, completionHandler: (Bool) -> Void) in
+            completionHandler(true)
+            self.completedTodo(key!, iscompleted!)
+        } //✔️
+        return action
+    }
     
     
     //키를 사용하여 해당 셀 데이터 삭제
@@ -236,70 +280,161 @@ class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
         }
         
         //alamofire를 사용하여 url/delete/todo_no를 전송하여 결과값 받음
-            Alamofire.request(url + "deleteTodo/\(key)", method: .get, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
-                print("Response Result : \(response.result.value!)")
-                let decoder = JSONDecoder()
-                let data: Data? = response.data
-                if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
-                    
-                    //서버 과부하를 방지하기위해 todolist에서 삭제하고자 하는 todo_no와 일치하는 데이터를 찾아 remove한다.
-                    if issuccess.result == 1 {
-                        var i : Int = 0
-                        for todo in self.todolist {
-                            if todo.todo_no == key {
-                                self.todolist.remove(at: i)
-                                break
-                            } else {
-                                i += 1
-                            }
+        Alamofire.request(url + "deleteTodo/\(key)", method: .get, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+            print("Response Result : \(response.result.value!)")
+            let decoder = JSONDecoder()
+            let data: Data? = response.data
+            if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                
+                //서버 과부하를 방지하기위해 todolist에서 삭제하고자 하는 todo_no와 일치하는 데이터를 찾아 remove한다.
+                if issuccess.result == 1 {
+                    var i : Int = 0
+                    for todo in self.todolist {
+                        if todo.todo_no == key {
+                            self.todolist.remove(at: i)
+                            break
+                        } else {
+                            i += 1
                         }
-                        
-                        //todoCompleted와 todoNotCompleted를 removeAll후 reloadData를 하면 삭제 후의 나머지 데이터를 다시 가져와 반영한다.
-                        self.todoCompleted.removeAll()
-                        self.todoNotCompleted.removeAll()
-                        self.tableView.reloadData()
                     }
-                    else {
-                        print("DeleteFail")
-                    }
+                    
+                    //todoCompleted와 todoNotCompleted를 removeAll후 reloadData를 하면 삭제 후의 나머지 데이터를 다시 가져와 반영한다.
+                    self.todoCompleted.removeAll()
+                    self.todoNotCompleted.removeAll()
+                    self.tableView.reloadData()
                 }
+                else {
+                    print("DeleteFail")
+                }
+                self.AddText.text = ""
             }
+        }
+        
     }
     
-   
     
-    
-    //Todo 추가하기
-    @IBAction func AddTodo(_ sender: Any) {
+    func editTodo(_ key : Int) {
         struct Success : Codable {
             var result : Int?
         }
         
-        if AddText.text != "" {
-            if let newTodo = AddText.text {
-                let params : Parameters = ["todo" : newTodo]
+        let params: Parameters = ["todo_no":key, "todo":self.AddText.text!]
+        
+        
+        Alamofire.request(url + "updateTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+            
+            let decoder = JSONDecoder()
+            let data: Data? = response.data
+            if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
                 
-                Alamofire.request(url+"addTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+                if issuccess.result == 1 {
+                    var i : Int = 0
+                    for todo in self.todolist {
+                        if todo.todo_no == key {
+                            self.todolist[i].todo = self.AddText.text!
+                            break
+                        } else {
+                            i += 1
+                        }
+                    }
                     
-                    let decoder = JSONDecoder()
-                    let data: Data? = response.data
-                    if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
-                        
-                        //추가 성공시, 서버에서 생성해주는 todo_no와 id, isCompleted를 다시 받아와야한다.
-                        if issuccess.result == 1 {
-                            self.AddText.text = ""
-                            self.LoadTodoList()
-                        }
-                        else {
-                            print("AddFail")
-                        }
+                    self.AddText.text = ""
+                    self.todoCompleted.removeAll()
+                    self.todoNotCompleted.removeAll()
+                    self.tableView.reloadData()
+                }
+                else {
+                    print("EditFail")
+                }
+            }
+        }
+        change = 0
+    }
+    
+    
+   
+    func addTodo() {
+        struct Success : Codable {
+            var result : Int?
+        }
+        
+        if let newTodo = AddText.text {
+            let params : Parameters = ["todo" : newTodo]
+            
+            Alamofire.request(url+"addTodo", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+                
+                let decoder = JSONDecoder()
+                let data: Data? = response.data
+                if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                    //추가 성공시, 서버에서 생성해주는 todo_no와 id, isCompleted를 다시 받아와야한다.
+                    if issuccess.result == 1 {
+                        self.AddText.text = ""
+                        self.LoadTodoList()
+                    }
+                    else {
+                        print("AddFail")
                     }
                 }
             }
         }
+    }
+    
+    
+    
+    func completedTodo(_ key : Int, _ iscompleted : Bool) {
+        struct Success : Codable {
+            var result : Int?
+        }
+        
+        let params: Parameters = ["todo_no":key, "iscompleted":iscompleted]
+        
+        
+        Alamofire.request(url + "toggleComplete", method: .post, parameters: params, encoding: JSONEncoding.default, headers: nil).responseJSON { response in
+            
+            let decoder = JSONDecoder()
+            let data: Data? = response.data
+            if let data = data, let issuccess = try? decoder.decode(Success.self, from: data) {
+                
+                //true : 완료 / false : 할일
+                if issuccess.result == 1 {
+//                    var i : Int = 0
+//                    for todo in self.todolist {
+//                        if todo.todo_no == key {
+//                            self.todolist[i].iscompleted = true
+//                            break
+//                        } else {
+//                            i += 1
+//                        }
+//                    }
+//
+//                    self.todoCompleted.removeAll()
+//                    self.todoNotCompleted.removeAll()
+//                    self.tableView.reloadData()
+                    
+                    self.AddText.text = ""
+                    self.LoadTodoList()
+                }
+                else {
+                    print("CompletedFail")
+                }
+            }
+        }
+        change = 0
+    }
+    
+    
+    
+    //Todo 추가하기
+    @IBAction func AddTodo(_ sender: Any) {
+        if AddText.text != "" {
+            
+        }
         print("AddTextField is nil")
         _ = textFieldShouldReturn(AddText)
     }
+    
+    
+    
     
     
     @IBOutlet weak var AddBtn: UIButton!
@@ -314,18 +449,27 @@ class TodoListTableViewController: UITableViewController, UITextFieldDelegate {
     
     
     func textFieldShouldReturn(_ textField : UITextField) -> Bool {
+        if change != 0 { //edit
+            editTodo(change!)
+        } else { //add
+            addTodo()
+        }
         textField.resignFirstResponder()
         return true
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if change != 0 {
+            change = 0
+            AddText.text = ""
+        }
         self.view.endEditing(true)
     }
     
     
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
 
 }
